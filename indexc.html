@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veloria</title>
+
+<style>
+body { margin:0; font-family: Arial, sans-serif; transition: background 0.5s, color 0.5s; }
+body.light { background:#fdfdfd; color:#000; }
+body.dark { background:#1b1c35; color:#fff; }
+
+header { display:flex; justify-content:space-between; align-items:center; padding:10px 20px; flex-wrap:wrap; background:linear-gradient(to right,#8a2be2,#6f1bbd); }
+header .logo { font-size:2em; font-weight:bold; color:#fff; }
+nav button { margin:5px; padding:10px 16px; border:none; border-radius:25px; background:linear-gradient(45deg,#6f1bbd,#8a2be2); color:#fff; cursor:pointer; transition:0.2s; }
+nav button:hover { transform:scale(1.1); box-shadow:0 4px 12px rgba(0,0,0,0.3); }
+
+#themeToggle { margin-left:10px; padding:8px 14px; border-radius:50%; font-size:1.2em; cursor:pointer; }
+#notification { position:fixed; top:20px; right:20px; background:#00ffff; color:#000; padding:12px 20px; border-radius:10px; font-weight:bold; opacity:0; pointer-events:none; transition:0.5s; }
+
+.home-container { display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; }
+.home-container img { max-width:80%; border-radius:15px; }
+
+.reviews { margin-top:20px; width:90%; display:flex; flex-direction:column; gap:15px; }
+.review { display:flex; justify-content:space-between; background:#242542; padding:10px; border-radius:10px; }
+.review .stars { color:gold; }
+
+.product-container { display:flex; flex-wrap:wrap; justify-content:center; padding:20px; gap:15px; }
+.product-card { background:#242542; padding:10px; border-radius:10px; width:200px; cursor:pointer; transition:0.2s; }
+.product-card:hover { transform:scale(1.05); }
+.product-card img { width:100%; border-radius:10px; }
+.product-info h3 { margin:5px 0; }
+
+.modal { display:none; position:fixed; z-index:100; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; }
+.modal-content { background:#242542; padding:20px; border-radius:10px; max-width:400px; width:90%; text-align:center; }
+.modal-content select, .modal-content input { width:80%; padding:5px; margin:5px 0; border-radius:5px; border:none; }
+.modal-content button { padding:8px 12px; border:none; border-radius:5px; background:#00ffff; cursor:pointer; font-weight:bold; }
+.close { position:absolute; top:10px; right:20px; font-size:25px; cursor:pointer; color:#fff; }
+
+#cartCounter { position:fixed; top:15px; right:15px; background:#00ffff; color:#000; padding:8px 12px; border-radius:50%; font-weight:bold; }
+
+@media(max-width:768px){ header { flex-direction:column; gap:10px; } .product-card { width:45%; } }
+@media(max-width:480px){ .product-card { width:90%; } }
+</style>
+</head>
+<body class="dark">
+
+<header>
+    <div class="logo">Veloria</div>
+    <nav>
+        <button id="homeBtn"></button>
+        <button id="womenBtn"></button>
+        <button id="menBtn"></button>
+        <button id="cartBtn"></button>
+    </nav>
+    <div>
+        <button id="themeToggle">🌞</button>
+        <img src="https://flagcdn.com/w20/eg.png" alt="AR" onclick="changeLang('ar')" style="cursor:pointer;margin-left:5px;">
+        <img src="https://flagcdn.com/w20/gb.png" alt="EN" onclick="changeLang('en')" style="cursor:pointer;margin-left:5px;">
+    </div>
+</header>
+
+<div id="homeContainer" class="home-container">
+    <img src="https://i.ibb.co/XBZBJD5/1764727530609.png" alt="Veloria">
+    <div class="reviews" id="reviewsContainer"></div>
+</div>
+
+<div id="productContainer" class="product-container"></div>
+
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <span id="closeModal" class="close">&times;</span>
+        <img id="modalImg" src="">
+        <h2 id="modalName"></h2>
+        <p id="modalDesc"></p>
+        <p id="modalPrice"></p>
+        <label id="sizeLabel"></label>
+        <select id="sizeSelect"></select>
+        <label id="quantityLabel"></label>
+        <input type="number" id="quantityInput" value="1" min="1">
+        <button id="addToCart"></button>
+    </div>
+</div>
+
+<div id="notification"></div>
+
+<script>
+let currentLang='ar';
+let cart=[];
+
+const translations={
+ar:{
+home:"الصفحة الرئيسية", women:"حريمي", men:"رجالي", cart:"السلة",
+size:"اختر المقاس", selectSize:"اختر المقاس", quantity:"الكمية", addToCart:"أضف للسلة",
+emptyCart:"السلة فارغة 😢", alertSize:"اختر المقاس أولاً", alertQty:"اختر عدد صحيح"
+},
+en:{
+home:"Home", women:"Women", men:"Men", cart:"Cart",
+size:"Select Size", selectSize:"Select Size", quantity:"Quantity", addToCart:"Add to Cart",
+emptyCart:"Cart is Empty 😢", alertSize:"Please select a size first", alertQty:"Please select a valid quantity"
+}
+};
+
+const productsWomen=[
+{img:"https://i.ibb.co/gbsmR2QF/IMG-20251202-WA0049.jpg", name:{ar:"فستان تركي راقي", en:"Elegant Turkish Dress"}, desc:{ar:"فستان ناعم بخامة ممتازة", en:"Soft premium material"}, price:"1100 EGP"},
+{img:"https://i.ibb.co/k6XNzpCv/IMG-20251202-WA0056.jpg", name:{ar:"بلوزة شيفون ستايل جديد", en:"New Style Chiffon Blouse"}, desc:{ar:"تفاصيل ناعمة للطلعات", en:"Light elegant details"}, price:"650 EGP"},
+{img:"https://i.ibb.co/ynD18y6Y/IMG-20251202-WA0050.jpg", name:{ar:"طقم شيك كامل", en:"Elegant Full Set"}, desc:{ar:"لوك أنيق ومثالي", en:"Perfect classy look"}, price:"1400 EGP"},
+{img:"https://i.ibb.co/CpVhGxv1/IMG-20251202-WA0059.jpg", name:{ar:"فستان سواريه فخم", en:"Luxury Evening Dress"}, desc:{ar:"مناسب للمناسبات", en:"Perfect for events"}, price:"1700 EGP"},
+{img:"https://i.ibb.co/Nd9xQQTK/IMG-20251202-WA0060.jpg", name:{ar:"بلوزة كاجوال", en:"Casual Top"}, desc:{ar:"إطلالة يومية بسيطة", en:"Simple daily look"}, price:"500 EGP"},
+{img:"https://i.ibb.co/XfrR6Mfn/IMG-20251202-WA0058.jpg", name:{ar:"جاكيت جلد ستايل", en:"Leather Style Jacket"}, desc:{ar:"ستايل قوي وشتوي", en:"Strong winter look"}, price:"950 EGP"},
+];
+
+const productsMen=[
+{img:"https://i.ibb.co/KxGJh078/images.jpg", name:{ar:"سويت شيرت رمادي شبابي", en:"Gray Youth Sweatshirt"}, desc:{ar:"مريح وخامة ممتازة", en:"Comfortable soft material"}, price:"750 EGP"},
+{img:"https://i.ibb.co/xSkdL1N8/31gjfi8l-Uu-L-AC.jpg", name:{ar:"سويت شيرت كحلي شيك", en:"Navy Blue Sweatshirt"}, desc:{ar:"ستايل بسيط وراقي", en:"Simple elegant style"}, price:"850 EGP"},
+{img:"https://i.ibb.co/xSkdL1N8/31gjfi8l-Uu-L-AC.jpg", name:{ar:"سويت شيرت أزرق كلاسيك", en:"Classic Blue Sweatshirt"}, desc:{ar:"شكل مرتب مناسب للخروج", en:"Perfect for outings"}, price:"820 EGP"},
+{img:"https://i.ibb.co/0RgXtnLF/images-1.jpg", name:{ar:"تيشيرت سباق أسود", en:"Black Racing T-Shirt"}, desc:{ar:"طباعة سريعة وجريئة", en:"Sporty fast-print design"}, price:"350 EGP"},
+];
+
+const reviewsData=[
+{name:{ar:"أحمد", en:"Ahmed"}, review:{ar:"المنتجات رائعة جدا!", en:"Amazing products!"}, stars:5},
+{name:{ar:"منى", en:"Mona"}, review:{ar:"خدمة سريعة والتوصيل ممتاز.", en:"Fast service, great delivery."}, stars:5},
+{name:{ar:"خالد", en:"Khaled"}, review:{ar:"أنصح الجميع بالشراء هنا.", en:"Highly recommend!"}, stars:5},
+{name:{ar:"سارة", en:"Sara"}, review:{ar:"جودة المنتجات عالية.", en:"High quality products."}, stars:5},
+{name:{ar:"ليلى", en:"Laila"}, review:{ar:"تجربة تسوق ممتعة.", en:"Enjoyable shopping experience."}, stars:5},
+{name:{ar:"محمد", en:"Mohamed"}, review:{ar:"كل شيء ممتاز.", en:"Everything is excellent."}, stars:5},
+{name:{ar:"هالة", en:"Hala"}, review:{ar:"أحببت التفاصيل.", en:"Loved the details."}, stars:5},
+{name:{ar:"يوسف", en:"Youssef"}, review:{ar:"سهل الاستخدام.", en:"Easy to use."}, stars:5},
+{name:{ar:"ريم", en:"Reem"}, review:{ar:"أفضل متجر على الإطلاق!", en:"Best store ever!"}, stars:5},
+{name:{ar:"أشرف", en:"Ashraf"}, review:{ar:"سأعود للشراء مرة أخرى.", en:"Will buy again."}, stars:5},
+{name:{ar:"علي", en:"Ali"}, review:{ar:"خدمة عملاء ممتازة.", en:"Excellent customer service."}, stars:5},
+{name:{ar:"نور", en:"Noor"}, review:{ar:"منتجات رائعة وأسعار مناسبة.", en:"Great products and good prices."}, stars:5}
+];
+
+const homeContainer=document.getElementById('homeContainer');
+const productContainer=document.getElementById('productContainer');
+const reviewsContainer=document.getElementById('reviewsContainer');
+const modal=document.getElementById('productModal');
+const modalImg=document.getElementById('modalImg');
+const modalName=document.getElementById('modalName');
+const modalDesc=document.getElementById('modalDesc');
+const modalPrice=document.getElementById('modalPrice');
+const closeModal=document.getElementById('closeModal');
+const addToCartBtn=document.getElementById('addToCart');
+const sizeSelect=document.getElementById('sizeSelect');
+const quantityInput=document.getElementById('quantityInput');
+const sizeLabel=document.getElementById('sizeLabel');
+const quantityLabel=document.getElementById('quantityLabel');
+const homeBtn=document.getElementById('homeBtn');
+const womenBtn=document.getElementById('womenBtn');
+const menBtn=document.getElementById('menBtn');
+const cartBtn=document.getElementById('cartBtn');
+const themeToggle=document.getElementById('themeToggle');
+
+let currentCategory=null;
+let currentProduct=null;
+
+function setLangTexts(){
+homeBtn.textContent=translations[currentLang].home;
+womenBtn.textContent=translations[currentLang].women;
+menBtn.textContent=translations[currentLang].men;
+cartBtn.textContent=translations[currentLang].cart;
+sizeLabel.textContent=translations[currentLang].size;
+quantityLabel.textContent=translations[currentLang].quantity;
+addToCartBtn.textContent=translations[currentLang].addToCart;
+sizeSelect.innerHTML=`<option value=\"\">${translations[currentLang].selectSize}</option><option value=\"M\">M</option><option value=\"L\">L</option><option value=\"XL\">XL</option><option value=\"XXL\">XXL</option>`;
+renderReviews();
+if(currentCategory) showCategory(currentCategory);
+}
+setLangTexts();
+
+function changeLang(lang){ currentLang=lang; setLangTexts(); }
+
+function renderReviews(){
+reviewsContainer.innerHTML='';
+reviewsData.forEach(r=>{
+const div=document.createElement('div');
+div.className='review';
+div.innerHTML=`<span>${r.name[currentLang]}: ${r.review[currentLang]}</span><span class=\"stars\">${'★'.repeat(r.stars)}</span>`;
+reviewsContainer.appendChild(div);
+});
+}
+
+function showCategory(category){
+homeContainer.style.display='none';
+productContainer.innerHTML='';
+currentCategory=category;
+const list=category==='women'?productsWomen:productsMen;
+list.forEach(p=>{
+const card=document.createElement('div');
+card.className='product-card';
+card.innerHTML=`<img src=\"${p.img}\"><div class=\"product-info\"><h3>${p.name[currentLang]}</h3><p>${p.price}</p></div>`;
+card.addEventListener('click',()=>openModal(p));
+productContainer.appendChild(card);
+});
+}
+
+function openModal(product){
+currentProduct=product;
+modal.style.display='flex';
+modalImg.src=product.img;
+modalName.textContent=product.name[currentLang];
+modalDesc.textContent=product.desc[currentLang];
+modalPrice.textContent=product.price;
+sizeSelect.value=''; quantityInput.value=1;
+}
+
+closeModal.addEventListener('click',()=>{modal.style.display='none';});
+window.addEventListener('click',e=>{if(e.target===modal) modal.style.display='none';});
+
+// buttons
+homeBtn.addEventListener('click',()=>{productContainer.innerHTML=''; homeContainer.style.display='flex';});
+womenBtn.addEventListener('click',()=>showCategory('women'));
+menBtn.addEventListener('click',()=>showCategory('men'));
+cartBtn.addEventListener('click',()=>showCart());
+
+function showNotification(msg){
+const notif=document.getElementById('notification');
+notif.textContent=msg;
+notif.style.opacity=1;
+setTimeout(()=>{notif.style.opacity=0;},2000);
+}
+
+addToCartBtn.addEventListener('click',()=>{
+const size=sizeSelect.value;
+const qty=parseInt(quantityInput.value);
+if(!size){ alert(translations[currentLang].alertSize); return;}
+if(qty<1){ alert(translations[currentLang].alertQty); return;}
+const existing=cart.find(i=>i.name===currentProduct.name[currentLang] && i.size===size);
+if(existing){ existing.quantity+=qty; } else{ cart.push({name:currentProduct.name[currentLang], size:size, quantity:qty, price:currentProduct.price});}
+showNotification(`${qty} ${translations[currentLang].addToCart}: ${currentProduct.name[currentLang]}`);
+updateCartCounter();
+modal.style.display='none';
+});
+
+function updateCartCounter(){
+let total=cart.reduce((sum,i)=>sum+i.quantity,0);
+let counter=document.getElementById('cartCounter');
+if(!counter){ counter=document.createElement('div'); counter.id='cartCounter'; document.body.appendChild(counter);}
+counter.textContent=total;
+}
+
+function showCart(){
+homeContainer.style.display='none';
+productContainer.innerHTML='';
+if(cart.length===0){ productContainer.innerHTML=`<h2 style=\"text-align:center;color:#00ffff;\">${translations[currentLang].emptyCart}</h2>`; return;}
+const table=document.createElement('table');
+table.innerHTML=`<tr style=\"background:#8a2be2;color:#fff;\"><th>المنتج</th><th>المقاس</th><th>عدد القطع</th><th>سعر القطعة</th><th>الإجمالي</th><th>حذف</th></tr>`;
+let grandTotal=0;
+cart.forEach((item,index)=>{
+    const priceNumber=parseInt(item.price.replace(/[^\\d]/g,''));
+    const total=priceNumber*item.quantity;
+    grandTotal+=total;
+    const row=document.createElement('tr');
+    row.innerHTML=`<td>${item.name}</td><td>${item.size}</td><td>${item.quantity}</td><td>${item.price}</td><td>${total} EGP</td><td><button onclick=\"removeFromCart(${index})\" style=\"padding:5px 10px;border:none;border-radius:5px;background:#ff0044;color:#fff;cursor:pointer;\">X</button></td>`;
+    table.appendChild(row);
+});
+const totalRow=document.createElement('tr');
+totalRow.innerHTML=`<td colspan=\"4\" style=\"text-align:center;font-weight:bold;\">المجموع النهائي</td><td colspan=\"2\" style=\"font-weight:bold;\">${grandTotal} EGP</td>`;
+table.appendChild(totalRow);
+productContainer.appendChild(table);
+}
+
+function removeFromCart(index){ cart.splice(index,1); updateCartCounter(); showCart(); }
+
+themeToggle.addEventListener('click',()=>{
+if(document.body.classList.contains('dark')){
+    document.body.classList.remove('dark'); document.body.classList.add('light'); themeToggle.textContent='🌙';
+}else{ document.body.classList.remove('light'); document.body.classList.add('dark'); themeToggle.textContent='🌞'; }
+});
+</script>
+
+</body>
+</html>
